@@ -27,6 +27,7 @@ Statement =
         Function_Break /
         Function_Mark /
         Function_Test_EOF /
+		Function_Test_MRD /
         Function_Assign_FID /
         Function_Assign_Host /
         Function_Assign_List /
@@ -113,6 +114,9 @@ Function_Mark = "mark" _wm label:Marker_Label{
 
 Function_Test_EOF = "t" _wo "=" _wo "EOF" {
     return `TEST EOF`;
+}
+Function_Test_MRD = "t" _wo "=" _wo "MRD" {
+    return `TEST MRD`;
 }
 
 Function_Assign_FID = reg:Register _wo "=" _wo "FID" {

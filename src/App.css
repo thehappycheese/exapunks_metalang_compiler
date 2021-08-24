@@ -30,6 +30,12 @@ h1{
 	padding:10px;
 }
 #right{
+	display: grid;
+	grid-template-rows: auto 1fr;
+	color:white;
+	gap:30px;
+}
+#output{
 	white-space: pre;
 	overflow-y: scroll;
 }

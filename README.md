@@ -60,38 +60,43 @@ Note:
 - Examples are shown in single line for brevity.
 - `;` are optional when carriage returns separate statements)
 
-| kwd     | eg                                                     | desc                                                                                |
-| ------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `#XXXX` | `x=#NERV;`                                             | hardware register                                                                   |
-| f       | `x=f;`                                                 | file register                                                                       |
-| m       | `t=m+1;`                                               | transfer register                                                                   |
-| t       | `t=x/2;`                                               | test register                                                                       |
-| x       | `x++;`                                                 | general register                                                                    |
-|         |                                                        |                                                                                     |
-| loop    | `loop{x++};` or `loop my_loop0 {...; exit my_loop_0;}` | loop block forever                                                                  |
-| dowf    | `t=0;dowf{link800;t=m}` or `dowf my_label{}`           | loop while t=0  (First pass always runs)                                            |
-| dowt    | `t=5;dowt{f=t;t--;}`                                   | loop while t<>0  (First pass always runs)                                           |
+| kwd     | eg                                                     | desc                                                                                     |
+| ------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `#XXXX` | `x=#NERV;`                                             | hardware register                                                                        |
+| f       | `x=f;` or `f=x;`                                       | file register                                                                            |
+| m       | `t=m+1;`                                               | transfer register                                                                        |
+| t       | `t=x/2;`                                               | test register. Only assignments to t can use comparison opperators `t=1<2`.              |
+| x       | `x++;`                                                 | general register                                                                         |
+|         |                                                        |                                                                                          |
+| EOF     | `t=EOF`                                                | test if at end of file. can only be assigned to `t`                                      |
+| MRD     | `t=MRD`                                                | test if transfer register can be read without pausing. can only be assigned to `t`       |
+| HOST    | `x=HOST;`                                              | HOST name can be assigned to any register                                                |
+| HOST    | `x=HOST;`                                              | FID held file id. can be assigned to any register                                        |
+|         |                                                        |                                                                                          |
+| loop    | `loop{x++};` or `loop my_loop0 {...; exit my_loop_0;}` | loop block forever                                                                       |
+| dowf    | `t=0;dowf{link800;t=m}` or `dowf my_label{}`           | loop while t=0  (First pass always runs)                                                 |
+| dowt    | `t=5;dowt{f=t;t--;}`                                   | loop while t<>0  (First pass always runs)                                                |
 | exit    | `exit my_loop1;`                                       | exit a labeled loop (Can also be called outside the loop to skip to the end of the loop) |
-|         |                                                        |                                                                                     |
-| mark    | `mark my_marker;`                                      | create label                                                                        |
-| jump    | `jump my_loop4;`                                       | jump                                                                                |
-| jmpf    | `jmpf my_loop2;`                                       | jump if t=0                                                                         |
-| jmpt    | `jmpt my_loop3;`                                       | jump if t<>0                                                                        |
-| iftf    | `iftf{x=m;}`                                           | if t=0 execute block                                                                |
-| iftt    | `iftt{x=m;}`                                           | if t<>0 execute block                                                               |
-|         |                                                        |                                                                                     |
-| halt    | `halt;`                                                | HALT                                                                                |
-| kill    | `kill;`                                                | KILL                                                                                |
-| link    | `link 800`                                             | Traverse network                                                                    |
-|         |                                                        |                                                                                     |
-| make    | `make;`                                                | make file                                                                           |
-| grab    | `grab 200;`                                            | GRAB                                                                                |
-| drop    | `drop;`                                                | drop file                                                                           |
-| delf    | `delf;`                                                | delete value at file cursor                                                         |
-|         |                                                        |                                                                                     |
-| mode    | `mode;`                                                | toggle global local M                                                               |
-| noop    | `noop;`                                                | No Operation                                                                        |
-| repl    | `repl my_marker;`                                      | Replicate and jump to label                                                         |
-| seek    | `seek -4;`                                             | Seek file cursor                                                                    |
-| skim    | `skim;`                                                | Read and discard one value from the transfer register                               |
-| wipe    | `wipe;`                                                | Wipe a file                                                                         |
+|         |                                                        |                                                                                          |
+| mark    | `mark my_marker;`                                      | create label                                                                             |
+| jump    | `jump my_loop4;`                                       | jump                                                                                     |
+| jmpf    | `jmpf my_loop2;`                                       | jump if t=0                                                                              |
+| jmpt    | `jmpt my_loop3;`                                       | jump if t<>0                                                                             |
+| iftf    | `iftf{x=m;}`                                           | if t=0 execute block                                                                     |
+| iftt    | `iftt{x=m;}`                                           | if t<>0 execute block                                                                    |
+|         |                                                        |                                                                                          |
+| halt    | `halt;`                                                | HALT                                                                                     |
+| kill    | `kill;`                                                | KILL                                                                                     |
+| link    | `link 800`                                             | Traverse network                                                                         |
+|         |                                                        |                                                                                          |
+| make    | `make;`                                                | make file                                                                                |
+| grab    | `grab 200;`                                            | GRAB                                                                                     |
+| drop    | `drop;`                                                | drop file                                                                                |
+| delf    | `delf;`                                                | delete value at file cursor                                                              |
+|         |                                                        |                                                                                          |
+| mode    | `mode;`                                                | toggle global local M                                                                    |
+| noop    | `noop;`                                                | No Operation                                                                             |
+| repl    | `repl my_marker;`                                      | Replicate and jump to label                                                              |
+| seek    | `seek -4;`                                             | Seek file cursor                                                                         |
+| skim    | `skim;`                                                | Read and discard one value from the transfer register                                    |
+| wipe    | `wipe;`                                                | Wipe a file                                                                              |

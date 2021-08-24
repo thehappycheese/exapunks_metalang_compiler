@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './App.css';
 import Editor, { DiffEditor, useMonaco, loader } from "@monaco-editor/react";
 import * as peggy from "peggy";
@@ -33,6 +33,7 @@ export const useLocalStorage = (key:string, defaultValue:any) => {
 
 
 function App() {
+	const editorRef:any = useRef(null);
 	let [input, set_input] = useLocalStorage("main","")
 	let [output,set_output] = useState("");
 	function handel_editor_change(value:any, event:any){
@@ -43,7 +44,14 @@ function App() {
 			set_output(e.toString())
 		}
 	}
-
+	function handleEditorDidMount(editor:any, monaco:any) {
+		editorRef.current = editor; 
+		try{
+			set_output(parser.parse(editorRef.current.getValue()+"\n"))
+		}catch(e:any){
+			set_output(e.toString())
+		}
+	  }
 	return (
 		<div className="App">
 			<div className="header">
@@ -54,10 +62,16 @@ function App() {
 				defaultLanguage="text"
 				theme="vs-dark"
 				defaultValue={input}
+				onMount={handleEditorDidMount}
 				onChange={handel_editor_change}
 			/>
 			<div id="right">
-				{output}
+				<div>
+					Documentation at <a href ="https://github.com/thehappycheese/exapunks_metalang_compiler">https://github.com/thehappycheese/exapunks_metalang_compiler</a> :)
+				</div>
+				<div id="output">
+					{output}
+				</div>
 			</div>
 		</div>
 	);
