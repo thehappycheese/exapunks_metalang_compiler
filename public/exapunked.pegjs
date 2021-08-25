@@ -1,7 +1,7 @@
 // EngineerNick's ExaPunks Metalanguage Compiler
-{{
+{
     var __marker_counter = 0;
-}}
+}
 
 Program = _won prog:Statement_List _won {return prog}
 
@@ -36,6 +36,13 @@ Statement =
     ) _wo (_nm / _le) {
         return statement
     } / Block_Statement
+	/ Comment_Statement
+
+
+Comment_Statement "Comment" 
+	= "//" comment:$([^\r\n]*) _nm {
+		return `NOTE ${comment}`
+	}
 
 Block_Statement = Infinite_Loop / Do_While_True_Loop / Do_While_False_Loop
 
@@ -150,8 +157,8 @@ Function_Assign = target:Register _wo "=" _wo arg1:(Integer/Register) {
     return `COPY ${arg1} ${target}`
 }
 
-Function_Math_Rand
-    = target:Register "=" _wo "rand(" _wo arg1:(Integer/Register) _wm arg2:(Integer/Register) _wo ")" {
+Function_Math_Rand 
+    = target:Register _wo "=" _wo "rand(" _won arg1:(Integer/Register) _won "," _won arg2:(Integer/Register) _won ")" {
         return `RAND ${arg1} ${arg2} ${target}`
     }
 
@@ -197,14 +204,15 @@ Register_F = "f"{return text().toUpperCase()}
 Register_M = "m"{return text().toUpperCase()}
 
 
-Marker_Label = $([A-z_0-9]+)
+Marker_Label "Label" = $([A-z_0-9]+)
 
-Register "Register"
+Register
     = (Register_X / Register_T / Register_F / Register_M / Hardware_Register)
 
-Hardware_Register= $("#"[A-z][A-z][A-z][A-z]){return text().toUpperCase()}
+Hardware_Register "HardwareRegister"
+= $("#"[A-z][A-z][A-z][A-z]){return text().toUpperCase()}
 
-Integer "integer"
+Integer "Integer"
   = [-]?[0-9]+ { return parseInt(text(), 10); }
 
 
@@ -215,14 +223,14 @@ _wm // mandatory
 _wo // optional
   = whitespace_character*
 
-_won // optional allowing newline
-  = [ \t\n\r]*
+_won// optional allowing newline
+  = (whitespace_character/_nm)*
 
-whitespace_character "whitespace"
+whitespace_character "Space"
  = [ \t]
 
-_nm "newline"
+_nm "Newline"
  = [\n\r]
 
-_le "lineend"
+_le "Semicolon"
  = [;]

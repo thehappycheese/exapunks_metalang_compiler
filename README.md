@@ -100,3 +100,7 @@ Note:
 | seek    | `seek -4;`                                             | Seek file cursor                                                                         |
 | skim    | `skim;`                                                | Read and discard one value from the transfer register                                    |
 | wipe    | `wipe;`                                                | Wipe a file                                                                              |
+|         |                                                        |                                                                                          |
+| rand    | `x=rand(0,10)`                                         | Random number between 2 integers, including the first, excluding the last.               |
+|         |                                                        |                                                                                          |
+| //      | `// this is a comment`                                 | Comments must appear on their own line or after a semicolon                              |
