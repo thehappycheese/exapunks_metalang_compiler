@@ -134,7 +134,7 @@ Function_Assign_Host = reg:Register _wo "=" _wo "HOST" {
     return `HOST ${reg}`
 }
 
-Function_Assign_List = reg:(Register_F/Register_M/Hardware_Register) _wo "=" _wo "[" _wo head:(Integer/Register) _wo tail:("," _wo Integer/Register)* _wo "]" {
+Function_Assign_List = reg:(Register_F/Register_M/Hardware_Register) _wo "=" _wo "[" _wo head:(Integer/Register) _wo tail:("," _wo (Integer/Register))* _wo "]" {
     return tail.reduce(
         (acc,cur)=>[...acc, cur[2]],
         [head]
