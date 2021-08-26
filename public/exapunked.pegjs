@@ -198,6 +198,9 @@ Function_Decrement = reg:Register "--"{
     return `SUBI ${reg} 1 ${reg}`
 }
 
+Register
+    = (Register_X / Register_T / Register_F / Register_M / Hardware_Register)
+
 Register_X = "x"{return text().toUpperCase()}
 Register_T = "t"{return text().toUpperCase()}
 Register_F = "f"{return text().toUpperCase()}
@@ -206,8 +209,7 @@ Register_M = "m"{return text().toUpperCase()}
 
 Marker_Label "Label" = $([A-z_0-9]+)
 
-Register
-    = (Register_X / Register_T / Register_F / Register_M / Hardware_Register)
+
 
 Hardware_Register "HardwareRegister"
 = $("#"[A-z][A-z][A-z][A-z]){return text().toUpperCase()}

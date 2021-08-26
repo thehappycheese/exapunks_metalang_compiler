@@ -138,18 +138,17 @@ function App() {
 				<h1>Nick's ExaPunks Meta-Language Compiler</h1>
 				Documentation at <a href="https://github.com/thehappycheese/exapunks_metalang_compiler">https://github.com/thehappycheese/exapunks_metalang_compiler</a> :)
 			</div>
-			<Editor
-				height="500px"
-				defaultLanguage="nexapunks"
-				theme="vs-dark"
-				defaultValue={input}
-				onMount={handleEditorDidMount}
-				onChange={handel_editor_change}
-			/>
-			<div id="right">
-				<div id="output" className={output.error ? "parse_error" : "parse_ok"}>
-					{output.parsed ? output.parsed : output.error}
-				</div>
+			<div>
+				<Editor
+					defaultLanguage="nexapunks"
+					theme="vs-dark"
+					defaultValue={input}
+					onMount={handleEditorDidMount}
+					onChange={handel_editor_change}
+				/>
+			</div>
+			<div id="right"className={output.error ? "parse_error" : "parse_ok"}>
+				{output.parsed ? output.parsed : output.error}
 			</div>
 		</div>
 	);
