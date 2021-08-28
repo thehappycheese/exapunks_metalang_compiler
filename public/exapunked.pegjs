@@ -151,27 +151,27 @@ Comment_Statement "Comment"
 Block_Statement = Infinite_Loop / Do_While_True_Loop / Do_While_False_Loop
 
 Infinite_Loop
-    = "loop" _won+ block:Block_Optionally_Labeled {
+    = "loop" block:Block_Optionally_Labeled {
         return `MARK ${block.marker}\n${block.code}\nJUMP ${block.marker}\nMARK ${block.marker}_EXIT`;
     }
 
-Do_While_True_Loop = "dowt" _won+ block:Block_Optionally_Labeled {
+Do_While_True_Loop = "dowt"  block:Block_Optionally_Labeled {
     return `MARK ${block.marker}\n${block.code}\nTJMP ${block.marker}\nMARK ${block.marker}_EXIT`;
 }
 
-Do_While_False_Loop = "dowf" _won* block:Block_Optionally_Labeled {
+Do_While_False_Loop = "dowf" block:Block_Optionally_Labeled {
     return `MARK ${block.marker}\n${block.code}\nFJMP ${block.marker}\nMARK ${block.marker}_EXIT`;
 }
 
-Function_If_True = "iftt" _won+ block:Block_Optionally_Labeled !(_won* "else") {
+Function_If_True = "iftt" block:Block_Optionally_Labeled !(_won* "else") {
     return `FJMP ${block.marker}\n${block.code}\nMARK ${block.marker}`;
 }
 
-Function_If_False = "iftf" _won+ block:Block_Optionally_Labeled !(_won* "else") {
+Function_If_False = "iftf" block:Block_Optionally_Labeled !(_won* "else") {
     return `TJMP ${block.marker}\n${block.code}\nMARK ${block.marker}`
 }
 
-Function_If_False_Else = "iftf" _won+ block1:Block_Optionally_Labeled _won* "else" _won+ block2:Block_Optionally_Labeled  {
+Function_If_False_Else = "iftf" block1:Block_Optionally_Labeled _won* "else" block2:Block_Optionally_Labeled  {
     return [`TJMP ${block2.marker}`,
 			`MARK ${block1.marker}`,
 			`${block1.code}`,
@@ -182,7 +182,7 @@ Function_If_False_Else = "iftf" _won+ block1:Block_Optionally_Labeled _won* "els
 			`MARK ${block2.marker}_EXIT`].join('\n');
 }
 			
-Function_If_True_Else = "iftt" _won+ block1:Block_Optionally_Labeled _won* "else" _won+ block2:Block_Optionally_Labeled  {
+Function_If_True_Else = "iftt" block1:Block_Optionally_Labeled _won* "else" block2:Block_Optionally_Labeled  {
     return [`FJMP ${block2.marker}`,
 			`MARK ${block1.marker}`,
 			`${block1.code}`,
@@ -193,9 +193,9 @@ Function_If_True_Else = "iftt" _won+ block1:Block_Optionally_Labeled _won* "else
 			`MARK ${block2.marker}_EXIT`].join('\n');
 }
 
-Block_Optionally_Labeled = lab:(Marker_Label)? _won* "{" _won* code:Statement_List _won* "}" {
+Block_Optionally_Labeled = lab:(_won+ Marker_Label)? _won* "{" _won* code:Statement_List _won* "}" {
 	return {
-		marker:`__${lab ?? (++__marker_counter + "__")}`,
+		marker:`__${lab?.[1] ?? (++__marker_counter + "__")}`,
 		code
 	}
 }
