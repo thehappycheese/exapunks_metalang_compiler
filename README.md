@@ -59,6 +59,8 @@ Note:
 
 - Examples are shown in single line for brevity.
 - `;` are optional when carriage returns separate statements)
+- does not include `@rep` macros
+- does not include extensions such as `GX`, `GY` and `wait` yet.
 
 | kwd     | eg                                                     | desc                                                                                     |
 | ------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
@@ -84,6 +86,7 @@ Note:
 | jmpt    | `jmpt my_loop3;`                                       | jump if t<>0                                                                             |
 | iftf    | `iftf{x=m;}`                                           | if t=0 execute block                                                                     |
 | iftt    | `iftt{x=m;}`                                           | if t<>0 execute block                                                                    |
+| else    | `iftt{x=m;}else{x=t}`                                  | else can be combined with `iftf` or `iftt` blocks                                        |
 |         |                                                        |                                                                                          |
 | halt    | `halt;`                                                | HALT                                                                                     |
 | kill    | `kill;`                                                | KILL                                                                                     |
