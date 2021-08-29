@@ -4,6 +4,7 @@ import Editor, { useMonaco, Monaco, loader } from "@monaco-editor/react";
 import * as peggy from "peggy";
 import { useLocalStorage } from './useLocalStorage';
 import {nexapunks_setup} from './nexapunks_lang';
+import optimise from './optimiser';
 
 loader.init().then(nexapunks_setup)
 
@@ -32,19 +33,21 @@ function App() {
 	},[opt_enabled, rem_notes_enabled, input,parser])
 
 	function do_update(value: string) {
-
-		let parser_options = {
-			optimise_inaccesible:opt_enabled,
-			optimise_markers:opt_enabled,
-			collapse_jump_chain:opt_enabled,
-			remove_notes:rem_notes_enabled
-		}
-
 		try {
 			if(parser===undefined) {
 				set_output({ parsed: "", error: "Loading Parser" });
 			}else{
-				set_output({ parsed: parser.parse(value + "\n", parser_options), error: "" })
+				let parsed:string = parser.parse(value+"\n");
+				if(opt_enabled){
+					try{
+						let optimised = optimise(parsed);
+						set_output({ parsed: optimised, error: "" })
+					}catch(e){
+						set_output({ parsed: parsed+"\n\nNOTE Optimisation failed: "+e, error: "" })
+					}
+				}else{
+					set_output({ parsed: parsed, error: "" })
+				}
 			}
 		} catch (e: any) {
 			set_output({ parsed: "", error: e.toString() })
