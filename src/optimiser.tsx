@@ -6,8 +6,6 @@ let JUMP_INSTRUCTIONS = new Set(["JUMP", "TJMP", "FJMP"]);
 
 
 
-
-
 class Instruction {
 	code: string;
 	args: string[];
@@ -25,17 +23,35 @@ class Instruction {
 	is_jump() {
 		return this.code === "JUMP" || this.code === "TJMP" || this.code === "FJMP";
 	}
+	is_conditional_jump() {
+		return this.code === "TJMP" || this.code === "FJMP";
+	}
+	is_unconditional_jump() {
+		return this.code === "JUMP";
+	}
 	toString() {
 		return [this.code, ...this.args].join(" ")
 	}
 	copy() {
 		return new Instruction(this.code, [...this.args])
 	}
+	
+	is_note(){
+		return this.code==="NOTE"
+	}
 	with_args(args: string[]) {
 		return new Instruction(this.code, args);
 	}
-	mutates_t(){
-		// TODO: this would allow more complex jump optimisations to be contemplated
+	with_opposite_conditional_jump(){
+		if(this.code=="FJMP")
+			return new Instruction("TJMP",this.args);
+		if(this.code=="TJMP")
+			return new Instruction("FJMP",this.args);
+		throw new Error("cannot call on anything other than a conditional jump")
+	}
+	args_equal(other:Instruction){
+		if(this.args.length !== other.args.length) return false;
+		return this.args.reduce((state, item, index)=>item===other.args[index] && state, true);
 	}
 }
 
@@ -50,15 +66,20 @@ export default function optimise(
 		.filter(item => item.trim() !== "")
 		.map(line => Instruction.from_line(line))
 
-
+	let passes = 0;
 	let previous_number_of_instructions = Infinity;
 	while (instructions.length < previous_number_of_instructions) {
+		passes++;
 		previous_number_of_instructions = instructions.length;
 		instructions = remove_inaccessible_code(instructions);
 		instructions = opt_remove_unused_markers(instructions);
 		instructions = collapse_jump_chain(instructions);
-		instructions = opt_rename_markers(instructions);
+		instructions = opt_toggle_conditional_jumps(instructions);
+		instructions = opt_remove_jumps_to_next_line(instructions);
+		instructions = opt_remove_halt_at_end(instructions);
 	}
+	instructions = opt_rename_markers(instructions);
+	console.log(`optimised in ${passes} passes`)
 
 	if (remove_notes) instructions = opt_remove_notes(instructions);
 
@@ -90,6 +111,9 @@ function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
 	}
 	return output;
 }
+
+
+
 /**
  * When a Mark is followed by an unconditional jump, try to re-label the jumps and delete the un-needed marks
  * ```
@@ -109,7 +133,6 @@ function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
  * MARK XX
  * ```
  */
-
 function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
 
 	// A juicy reducey ;)
@@ -167,13 +190,50 @@ function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
  * ```
  * TJMP CC
  * MARK AA
+ * ...
+ * MARC CC
  * ```
  */
-function toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
-	// TODO: write this
+function opt_toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
+	let lines_to_delete = new Set();
+	let do_toggle:Record<number, string[]> = {};
 
-	return instructions;
+	for(let i = 0;i<instructions.length;i++){
+		if(instructions[i].is_conditional_jump()){
+			for(let j=i+1;j<instructions.length;j++){
+				if(instructions[j].is_unconditional_jump()){
+					for(let k=j+1;k<instructions.length;k++){
+						if(instructions[k].code === "MARK" && instructions[k].args_equal(instructions[i])){
+							lines_to_delete.add(j)
+							do_toggle[i] = instructions[j].args;
+							break
+						}else if(instructions[j].code === "NOTE"){
+							continue
+						}else{
+							break
+						}
+					}
+					break
+				}else if(instructions[j].code === "NOTE"){
+					continue
+				}else{
+					break
+				}
+			}
+		}
+	}
+
+	let result = instructions.map((instruction,index)=>{
+		if(index in do_toggle){
+			return instruction.with_opposite_conditional_jump().with_args(do_toggle[index])
+		}
+		return instruction;
+	});
+	
+	return result.filter((item, index)=>!lines_to_delete.has(index))
 }
+
+
 
 /**
  * FJMP AA
@@ -184,29 +244,55 @@ function toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
  * MARK AA
  */
 function opt_remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
-	// let output = [];
-	// let skipping = false;
-	// for (let instruction of instructions) {
-	// 	if (instruction.code == "JUMP" || instruction.code == "HALT") {
-	// 		if (!skipping) output.push(instruction)
-	// 		skipping = true;
-	// 		continue;
-	// 	}
-	// 	if (instruction.code == "MARK") {
-	// 		skipping = false;
-	// 	}
-	// 	if (!skipping || instruction.code == "NOTE") {
-	// 		output.push(instruction)
-	// 	}
-	// }
-	// return output;
-	return instructions
+
+	let lines_to_delete = new Set();
+	
+	for(let i = 0;i<instructions.length;i++){
+		if(instructions[i].is_jump()){
+			for(let j=i+1;j<instructions.length;j++){
+				if(instructions[j].code === "MARK" && instructions[i].args[0] === instructions[j].args[0]){
+					lines_to_delete.add(i)
+					break
+				}else if(instructions[j].code === "NOTE"){
+					continue
+				}else{
+					break
+				}
+			}
+		}
+	}
+
+	return instructions.filter((item, index)=>!lines_to_delete.has(index))
 }
 
+/**
+ * Remove HALT instructions that appear at the end of the program
+*/
+function opt_remove_halt_at_end(instructions: Instruction[]): Instruction[] {
+	let lines_to_delete = new Set();
 
+	for(let i=instructions.length-1;i>=0;i--){
+		if(instructions[i].code==="HALT"){
+			lines_to_delete.add(i);
+		}else if(instructions[i].code==="NOTE"){
+			continue;
+		}else{
+			break;
+		}
+	}
+
+	return instructions.filter((item, index)=>!lines_to_delete.has(index))
+}
+
+/**
+ * Remove NOTE
+*/
 function opt_remove_notes(instructions: Instruction[]) {
 	return instructions.filter(item => item.code != "NOTE");
 }
+
+
+
 /**
  * Remove unused markers
 */
@@ -214,7 +300,7 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 	let used_marker_names = new Set(
 		instructions
-			.filter(instruction => instruction.is_jump)
+			.filter(instruction => instruction.is_jump())
 			.map(instruction => instruction.args[0])
 	);
 
@@ -248,6 +334,7 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 		[]
 	)
 }
+
 
 
 
