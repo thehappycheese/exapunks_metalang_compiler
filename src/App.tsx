@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
-import Editor, { useMonaco, Monaco, loader } from "@monaco-editor/react";
+import Editor, { loader } from "@monaco-editor/react";
+// import { useMonaco, Monaco } from "@monaco-editor/react";
 import * as peggy from "peggy";
 import { useLocalStorage } from './useLocalStorage';
 import {nexapunks_setup} from './nexapunks_lang';

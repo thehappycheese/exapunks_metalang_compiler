@@ -2,7 +2,10 @@
 
 
 
-let JUMP_INSTRUCTIONS = new Set(["JUMP", "TJMP", "FJMP"]);
+// let JUMP_OR_REPL = new Set(["JUMP", "TJMP", "FJMP", "REPL"]);
+// let JUMP_ONLY = new Set(["JUMP", "TJMP", "FJMP"]);
+// let JUMP_CONDITIONALLY = new Set(["TJMP", "FJMP"]);
+// let JUMP_UN_CONDITIONALLY = new Set(["JUMP"]);
 
 
 
@@ -20,6 +23,9 @@ class Instruction {
 		return new Instruction(code, args);
 	}
 
+	is_jump_or_repl() {
+		return this.code === "JUMP" || this.code === "TJMP" || this.code === "FJMP" || this.code === "REPL";
+	}
 	is_jump() {
 		return this.code === "JUMP" || this.code === "TJMP" || this.code === "FJMP";
 	}
@@ -37,15 +43,15 @@ class Instruction {
 	}
 	
 	is_note(){
-		return this.code==="NOTE"
+		return this.code === "NOTE"
 	}
 	with_args(args: string[]) {
 		return new Instruction(this.code, args);
 	}
 	with_opposite_conditional_jump(){
-		if(this.code=="FJMP")
+		if(this.code === "FJMP")
 			return new Instruction("TJMP",this.args);
-		if(this.code=="TJMP")
+		if(this.code === "TJMP")
 			return new Instruction("FJMP",this.args);
 		throw new Error("cannot call on anything other than a conditional jump")
 	}
@@ -97,15 +103,15 @@ function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
 	let output = [];
 	let skipping = false;
 	for (let instruction of instructions) {
-		if (instruction.code == "JUMP" || instruction.code == "HALT") {
+		if (instruction.code === "JUMP" || instruction.code === "HALT") {
 			if (!skipping) output.push(instruction)
 			skipping = true;
 			continue;
 		}
-		if (instruction.code == "MARK") {
+		if (instruction.code === "MARK") {
 			skipping = false;
 		}
-		if (!skipping || instruction.code == "NOTE") {
+		if (!skipping || instruction.code === "NOTE") {
 			output.push(instruction)
 		}
 	}
@@ -140,12 +146,12 @@ function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
 		replacement: { index: number, mark: Instruction, jump: Instruction }[],
 		trigger_mark?: { index: number, mark: Instruction },
 	}, instruction, index) => {
-		if (instruction.code == "MARK") {
+		if (instruction.code === "MARK") {
 			return {
 				...state,
 				trigger_mark: { index, mark: instruction }
 			}
-		} else if (instruction.code == "JUMP" && state.trigger_mark) {
+		} else if (instruction.code === "JUMP" && state.trigger_mark) {
 			return {
 				...state,
 				replacement: [...state.replacement, { ...state.trigger_mark, jump: instruction }]
@@ -168,9 +174,9 @@ function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
 	// repeatedly modify output with replacement rules;
 	for (let item of found) {
 		let { mark, jump } = item;
-		output = output.map(instruction => (instruction.is_jump() && instruction.args[0] == mark.args[0]) ? instruction.with_args(jump.args) : instruction)
+		output = output.map(instruction => (instruction.is_jump_or_repl() && instruction.args[0] === mark.args[0]) ? instruction.with_args(jump.args) : instruction)
 	}
-	output = output.filter((_, index) => !found.find(item => item.index == index))
+	output = output.filter((_, index) => !found.find(item => item.index === index))
 
 	return output;
 }
@@ -288,7 +294,7 @@ function opt_remove_halt_at_end(instructions: Instruction[]): Instruction[] {
  * Remove NOTE
 */
 function opt_remove_notes(instructions: Instruction[]) {
-	return instructions.filter(item => item.code != "NOTE");
+	return instructions.filter(item => item.code !== "NOTE");
 }
 
 
@@ -300,7 +306,7 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 	let used_marker_names = new Set(
 		instructions
-			.filter(instruction => instruction.is_jump())
+			.filter(instruction => instruction.is_jump_or_repl())
 			.map(instruction => instruction.args[0])
 	);
 
@@ -309,7 +315,7 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 		instruction,
 		index
 	) => {
-		if (instruction.code == "MARK" && used_marker_names.has(instruction.args[0]))
+		if (instruction.code === "MARK" && used_marker_names.has(instruction.args[0]))
 			return [...acc, { index, instruction }];
 		return acc;
 	},
@@ -319,14 +325,14 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 
 	return instructions.reduce((acc: Instruction[], instruction, index) => {
-		if (instruction.code == "MARK") {
+		if (instruction.code === "MARK") {
 			if (markers_to_keep.find(item => item.index === index)) {
 				return [...acc, instruction]
 			} else {
 				return acc;
 			}
 		}
-		if (instruction.is_jump())
+		if (instruction.is_jump_or_repl())
 			return [...acc, (used_marker_names.has(instruction.args[0])) ? instruction : instruction.with_args(["ERROR_CANNOT_JUMP_TO_" + instruction.args[0]])]
 
 		return [...acc, instruction]
@@ -343,7 +349,7 @@ function opt_rename_markers(instructions: Instruction[]): Instruction[] {
 
 	let markers = instructions
 		.map((instruction, index) => ({ index, instruction }))
-		.filter(({ instruction }) => instruction.code == "MARK")
+		.filter(({ instruction }) => instruction.code === "MARK")
 
 	let rename_map = markers.reduce(
 		(acc: Record<string, string>, { index, instruction }) => {
@@ -354,10 +360,10 @@ function opt_rename_markers(instructions: Instruction[]): Instruction[] {
 	);
 
 	return instructions.reduce((acc: Instruction[], instruction, index) => {
-		if (instruction.code == "MARK") {
+		if (instruction.code === "MARK") {
 			return [...acc, instruction.with_args([rename_map[instruction.args[0]]])]
 		}
-		if (instruction.is_jump())
+		if (instruction.is_jump_or_repl())
 			return [...acc, instruction.with_args([rename_map[instruction.args[0]] ?? instruction.args[0]])]
 		return [...acc, instruction]
 	},
