@@ -113,6 +113,7 @@ export const nexapunks_setup = (monaco:any) => {
 			"ADDI",
 			"MODI",
 			"DIVI",
+			"SWIZ",
 		],
 		keywordssingle:[
 			"HALT",
@@ -122,7 +123,8 @@ export const nexapunks_setup = (monaco:any) => {
 			"KILL",
 			"NOOP",
 			"WIPE",
-			"MAKE"
+			"MAKE",
+			"NOOP"
 		],
 		registers: [
 			"F",

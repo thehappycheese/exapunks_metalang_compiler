@@ -61,11 +61,21 @@ class Instruction {
 	}
 }
 
-
+export interface OptimisationOptions extends Record<string,boolean>{
+	remove_inaccessible_code:boolean,
+	collapse_jump_chain:boolean,
+	toggle_conditional_jumps:boolean,
+	remove_jumps_to_next_line:boolean,
+	remove_unused_markers:boolean,
+	remove_halt_at_end:boolean,
+	rename_markers:boolean,
+	remove_notes:boolean
+}
 
 export default function optimise(
 	prog: string,
-	remove_notes: boolean = false
+	opts: OptimisationOptions,
+	max_passes:number=999
 ): string {
 	let instructions = prog
 		.split("\n")
@@ -74,20 +84,20 @@ export default function optimise(
 
 	let passes = 0;
 	let previous_number_of_instructions = Infinity;
-	while (instructions.length < previous_number_of_instructions) {
+	while (instructions.length < previous_number_of_instructions && passes < max_passes) {
 		passes++;
 		previous_number_of_instructions = instructions.length;
-		instructions = remove_inaccessible_code(instructions);
-		instructions = opt_remove_unused_markers(instructions);
-		instructions = collapse_jump_chain(instructions);
-		instructions = opt_toggle_conditional_jumps(instructions);
-		instructions = opt_remove_jumps_to_next_line(instructions);
-		instructions = opt_remove_halt_at_end(instructions);
+		instructions = opts.remove_inaccessible_code ? remove_inaccessible_code(instructions) : instructions;
+		instructions = opts.remove_unused_markers ? remove_unused_markers(instructions): instructions;
+		instructions = opts.collapse_jump_chain ? collapse_jump_chain(instructions): instructions;
+		instructions = opts.toggle_conditional_jumps ? toggle_conditional_jumps(instructions): instructions;
+		instructions = opts.remove_jumps_to_next_line ? remove_jumps_to_next_line(instructions): instructions;
+		instructions = opts.remove_halt_at_end ? remove_halt_at_end(instructions): instructions;
 	}
-	instructions = opt_rename_markers(instructions);
+	instructions = opts.rename_markers ? rename_markers(instructions) : instructions;
 	console.log(`optimised in ${passes} passes`)
 
-	if (remove_notes) instructions = opt_remove_notes(instructions);
+	instructions = opts.remove_notes ? remove_notes(instructions) : instructions;
 
 	return instructions
 		.map(item => item.toString())
@@ -200,7 +210,7 @@ function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
  * MARC CC
  * ```
  */
-function opt_toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
+function toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
 	let lines_to_delete = new Set();
 	let do_toggle:Record<number, string[]> = {};
 
@@ -249,7 +259,7 @@ function opt_toggle_conditional_jumps(instructions: Instruction[]): Instruction[
  * 
  * MARK AA
  */
-function opt_remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
+function remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
 
 	let lines_to_delete = new Set();
 	
@@ -274,7 +284,7 @@ function opt_remove_jumps_to_next_line(instructions: Instruction[]): Instruction
 /**
  * Remove HALT instructions that appear at the end of the program
 */
-function opt_remove_halt_at_end(instructions: Instruction[]): Instruction[] {
+function remove_halt_at_end(instructions: Instruction[]): Instruction[] {
 	let lines_to_delete = new Set();
 
 	for(let i=instructions.length-1;i>=0;i--){
@@ -293,7 +303,7 @@ function opt_remove_halt_at_end(instructions: Instruction[]): Instruction[] {
 /**
  * Remove NOTE
 */
-function opt_remove_notes(instructions: Instruction[]) {
+function remove_notes(instructions: Instruction[]) {
 	return instructions.filter(item => item.code !== "NOTE");
 }
 
@@ -302,7 +312,7 @@ function opt_remove_notes(instructions: Instruction[]) {
 /**
  * Remove unused markers
 */
-function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
+function remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 	let used_marker_names = new Set(
 		instructions
@@ -345,7 +355,7 @@ function opt_remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 
 
-function opt_rename_markers(instructions: Instruction[]): Instruction[] {
+function rename_markers(instructions: Instruction[]): Instruction[] {
 
 	let markers = instructions
 		.map((instruction, index) => ({ index, instruction }))
@@ -370,5 +380,10 @@ function opt_rename_markers(instructions: Instruction[]): Instruction[] {
 		[]
 	)
 
+
+}
+
+debugger
+function join_adjacent_markers(instructions: Instruction[]): Instruction[] {
 
 }

@@ -20,18 +20,51 @@ h1{
 
 .App {
 	display:grid;
-	grid-template-columns: 50% 50%;
+	gap:5px;
+	grid-template-columns: 300px 1fr 1fr;
 	grid-template-rows: auto 1fr;
+	grid-template-areas:
+		"head head head"
+		"settings prog comp";
 	height:100%
 }
 
-.header{
-	grid-column: 1/3;
+@media screen and (max-width: 900px) {
+	.App {
+		grid-template-columns: 1fr;
+		grid-template-rows: auto auto 1fr 1fr;
+		grid-template-areas:
+			"head"
+			"settings"
+			"prog"
+			"comp";
+	} 
+}
+
+
+
+#header{
+	grid-area: head;
 	padding:10px;
 }
 
-#right{
-	color:white;
+#left_editor{
+	grid-area: prog;
+}
+
+#right_editor{
+	grid-area: comp;
+}
+
+#settings{
+	grid-area:settings;
+	padding: 5px;
+}
+
+.two_col{
+	display: grid;
+	gap:3px;
+	grid-template-columns: auto 1fr;
 }
 
 .parse_ok{
