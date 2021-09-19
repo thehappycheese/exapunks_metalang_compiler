@@ -1,14 +1,6 @@
 
 
 
-
-// let JUMP_OR_REPL = new Set(["JUMP", "TJMP", "FJMP", "REPL"]);
-// let JUMP_ONLY = new Set(["JUMP", "TJMP", "FJMP"]);
-// let JUMP_CONDITIONALLY = new Set(["TJMP", "FJMP"]);
-// let JUMP_UN_CONDITIONALLY = new Set(["JUMP"]);
-
-
-
 class Instruction {
 	code: string;
 	args: string[];
@@ -35,15 +27,24 @@ class Instruction {
 	is_unconditional_jump() {
 		return this.code === "JUMP";
 	}
+	
+	is_mark(){
+		return this.code === "MARK";
+	}
+	
+	is_noop_or_note(){
+		return this.code === "NOTE" || this.code === "NOOP";
+	}
+
+	is_note(){
+		return this.code === "NOTE";
+	}
+
 	toString() {
 		return [this.code, ...this.args].join(" ")
 	}
 	copy() {
 		return new Instruction(this.code, [...this.args])
-	}
-	
-	is_note(){
-		return this.code === "NOTE"
 	}
 	with_args(args: string[]) {
 		return new Instruction(this.code, args);
@@ -68,23 +69,29 @@ export interface OptimisationOptions extends Record<string,boolean>{
 	remove_jumps_to_next_line:boolean,
 	remove_unused_markers:boolean,
 	remove_halt_at_end:boolean,
+	merge_adjacent_markers:boolean,
 	rename_markers:boolean,
-	remove_notes:boolean
+	remove_notes:boolean,
+}
+
+export interface OptimiseResult{
+	code:string,
+	used_passes:number
 }
 
 export default function optimise(
 	prog: string,
 	opts: OptimisationOptions,
 	max_passes:number=999
-): string {
+): OptimiseResult {
 	let instructions = prog
 		.split("\n")
 		.filter(item => item.trim() !== "")
 		.map(line => Instruction.from_line(line))
 
-	let passes = 0;
+	let passes = 1;
 	let previous_number_of_instructions = Infinity;
-	while (instructions.length < previous_number_of_instructions && passes < max_passes) {
+	while (instructions.length < previous_number_of_instructions && passes <= max_passes) {
 		passes++;
 		previous_number_of_instructions = instructions.length;
 		instructions = opts.remove_inaccessible_code ? remove_inaccessible_code(instructions) : instructions;
@@ -93,21 +100,24 @@ export default function optimise(
 		instructions = opts.toggle_conditional_jumps ? toggle_conditional_jumps(instructions): instructions;
 		instructions = opts.remove_jumps_to_next_line ? remove_jumps_to_next_line(instructions): instructions;
 		instructions = opts.remove_halt_at_end ? remove_halt_at_end(instructions): instructions;
+		instructions = opts.merge_adjacent_markers ? merge_adjacent_markers(instructions): instructions;
 	}
 	instructions = opts.rename_markers ? rename_markers(instructions) : instructions;
-	console.log(`optimised in ${passes} passes`)
 
 	instructions = opts.remove_notes ? remove_notes(instructions) : instructions;
 
-	return instructions
+	return {
+		code: instructions
 		.map(item => item.toString())
-		.join("\n");
+		.join("\n"),
+		used_passes:passes-1
+	}
 }
 
 
 
 /**
- * Delete all code between an unconditional JUMP or a HALT and the next MARK
+ * Delete all code between an unconditional `JUMP` or a `HALT` and the next `MARK`
 */
 function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
 	let output = [];
@@ -118,10 +128,10 @@ function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
 			skipping = true;
 			continue;
 		}
-		if (instruction.code === "MARK") {
+		if (instruction.is_mark()) {
 			skipping = false;
 		}
-		if (!skipping || instruction.code === "NOTE") {
+		if (!skipping || instruction.is_note()) {
 			output.push(instruction)
 		}
 	}
@@ -148,6 +158,8 @@ function remove_inaccessible_code(instructions: Instruction[]): Instruction[] {
  * ...
  * MARK XX
  * ```
+ * 
+ * only permit this when AA!=XX
  */
 function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
 
@@ -156,17 +168,25 @@ function collapse_jump_chain(instructions: Instruction[]): Instruction[] {
 		replacement: { index: number, mark: Instruction, jump: Instruction }[],
 		trigger_mark?: { index: number, mark: Instruction },
 	}, instruction, index) => {
-		if (instruction.code === "MARK") {
+		if (instruction.is_mark()) {
 			return {
 				...state,
 				trigger_mark: { index, mark: instruction }
 			}
-		} else if (instruction.code === "JUMP" && state.trigger_mark) {
+		} else if (instruction.is_unconditional_jump() && state.trigger_mark) {
+			if(instruction.args_equal(state.trigger_mark.mark)){
+				// check for edge case where AA==XX. this only happens in dumb code anyway (empty infinite loops), but it creates invalid output.
+				// will will reset the trigger and not consider this mark as part of a jump chain
+				return {
+					...state,
+					trigger_mark: undefined
+				}
+			}
 			return {
 				...state,
 				replacement: [...state.replacement, { ...state.trigger_mark, jump: instruction }]
 			}
-		} else if (instruction.code !== "NOTE") {
+		} else if (!instruction.is_note()) {
 			return {
 				...state,
 				trigger_mark: undefined
@@ -219,18 +239,18 @@ function toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
 			for(let j=i+1;j<instructions.length;j++){
 				if(instructions[j].is_unconditional_jump()){
 					for(let k=j+1;k<instructions.length;k++){
-						if(instructions[k].code === "MARK" && instructions[k].args_equal(instructions[i])){
+						if(instructions[k].is_mark() && instructions[k].args_equal(instructions[i])){
 							lines_to_delete.add(j)
 							do_toggle[i] = instructions[j].args;
 							break
-						}else if(instructions[j].code === "NOTE"){
+						}else if(instructions[j].is_note()){
 							continue
 						}else{
 							break
 						}
 					}
 					break
-				}else if(instructions[j].code === "NOTE"){
+				}else if(instructions[j].is_note()){
 					continue
 				}else{
 					break
@@ -252,12 +272,16 @@ function toggle_conditional_jumps(instructions: Instruction[]): Instruction[] {
 
 
 /**
+ * ```
  * FJMP AA
  * MARK AA
+ * ```
  * 
  * to
  * 
+ * ```
  * MARK AA
+ * ```
  */
 function remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
 
@@ -266,10 +290,10 @@ function remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
 	for(let i = 0;i<instructions.length;i++){
 		if(instructions[i].is_jump()){
 			for(let j=i+1;j<instructions.length;j++){
-				if(instructions[j].code === "MARK" && instructions[i].args[0] === instructions[j].args[0]){
+				if(instructions[j].is_mark() && instructions[i].args[0] === instructions[j].args[0]){
 					lines_to_delete.add(i)
 					break
-				}else if(instructions[j].code === "NOTE"){
+				}else if(instructions[j].is_note()){
 					continue
 				}else{
 					break
@@ -282,7 +306,7 @@ function remove_jumps_to_next_line(instructions: Instruction[]): Instruction[] {
 }
 
 /**
- * Remove HALT instructions that appear at the end of the program
+ * Remove `HALT` instructions that appear at the end of the program
 */
 function remove_halt_at_end(instructions: Instruction[]): Instruction[] {
 	let lines_to_delete = new Set();
@@ -290,9 +314,8 @@ function remove_halt_at_end(instructions: Instruction[]): Instruction[] {
 	for(let i=instructions.length-1;i>=0;i--){
 		if(instructions[i].code==="HALT"){
 			lines_to_delete.add(i);
-		}else if(instructions[i].code==="NOTE"){
-			continue;
-		}else{
+		}else if(!instructions[i].is_note()){
+			// code found after halt other than notes
 			break;
 		}
 	}
@@ -301,16 +324,16 @@ function remove_halt_at_end(instructions: Instruction[]): Instruction[] {
 }
 
 /**
- * Remove NOTE
+ * Remove `NOTE`
 */
 function remove_notes(instructions: Instruction[]) {
-	return instructions.filter(item => item.code !== "NOTE");
+	return instructions.filter(item => !item.is_note());
 }
 
 
 
 /**
- * Remove unused markers
+ * Remove unused `MARK`
 */
 function remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
@@ -325,7 +348,7 @@ function remove_unused_markers(instructions: Instruction[]): Instruction[] {
 		instruction,
 		index
 	) => {
-		if (instruction.code === "MARK" && used_marker_names.has(instruction.args[0]))
+		if (instruction.is_mark() && used_marker_names.has(instruction.args[0]))
 			return [...acc, { index, instruction }];
 		return acc;
 	},
@@ -335,7 +358,7 @@ function remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 
 	return instructions.reduce((acc: Instruction[], instruction, index) => {
-		if (instruction.code === "MARK") {
+		if (instruction.is_mark()) {
 			if (markers_to_keep.find(item => item.index === index)) {
 				return [...acc, instruction]
 			} else {
@@ -354,12 +377,14 @@ function remove_unused_markers(instructions: Instruction[]): Instruction[] {
 
 
 
-
+/**
+ * rename `MARK` statements from those generated by this compiler to the line number of the `MARK`
+ */
 function rename_markers(instructions: Instruction[]): Instruction[] {
 
 	let markers = instructions
 		.map((instruction, index) => ({ index, instruction }))
-		.filter(({ instruction }) => instruction.code === "MARK")
+		.filter(({ instruction }) => instruction.is_mark())
 
 	let rename_map = markers.reduce(
 		(acc: Record<string, string>, { index, instruction }) => {
@@ -370,7 +395,7 @@ function rename_markers(instructions: Instruction[]): Instruction[] {
 	);
 
 	return instructions.reduce((acc: Instruction[], instruction, index) => {
-		if (instruction.code === "MARK") {
+		if (instruction.is_mark()) {
 			return [...acc, instruction.with_args([rename_map[instruction.args[0]]])]
 		}
 		if (instruction.is_jump_or_repl())
@@ -383,7 +408,72 @@ function rename_markers(instructions: Instruction[]): Instruction[] {
 
 }
 
-debugger
-function join_adjacent_markers(instructions: Instruction[]): Instruction[] {
 
+/**
+ * convert
+ * 
+ * ```
+ * MARK AA
+ * MARK BB
+ * ...
+ * JUMP AA
+ * ...
+ * JUMP BB
+ * ```
+ * 
+ * to
+ * 
+ * ```
+ * MARK CC
+ * ...
+ * JUMP CC
+ * ...
+ * JUMP CC 
+ * ```
+ */
+function merge_adjacent_markers(instructions: Instruction[]): Instruction[] {
+	// A juicy reducey ;)
+	let found = instructions.reduce((state: {
+		replacement: { first_index:number, sub_index: number, first_mark: Instruction, sub_mark: Instruction }[],
+		trigger_mark?: { index: number, mark: Instruction },
+	}, instruction, index) => {
+		if (instruction.is_mark() && state.trigger_mark === undefined) {
+			return {
+				...state,
+				trigger_mark: { index, mark: instruction }
+			}
+		}else if(instruction.is_mark() && state.trigger_mark !== undefined){
+			return {
+				...state,
+				replacement:[...state.replacement,{
+					first_index:state.trigger_mark.index,
+					first_mark:state.trigger_mark.mark,
+					sub_index:index,
+					sub_mark:instruction
+				}]
+			}
+		} else if (!instruction.is_note()) {
+			return {
+				...state,
+				trigger_mark: undefined
+			}
+		}
+		return state
+	},
+		{
+			replacement: [],
+			trigger_mark: undefined,
+		}
+	).replacement;
+
+	let output = instructions;
+	// repeatedly modify output with replacement rules;
+	for (let item of found) {
+		let { first_index, sub_index, first_mark, sub_mark } = item;
+		output = output.map(instruction => (instruction.is_jump_or_repl() && instruction.args_equal(sub_mark)) ? instruction.with_args(first_mark.args) : instruction)
+	}
+	// delete subsequent marks
+	output = output.filter((_, index) => !found.find(item => item.sub_index === index))
+
+	return output;
 }

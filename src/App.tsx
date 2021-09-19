@@ -18,6 +18,11 @@ function App() {
 	const [parser, set_parser] = useState<peggy.Parser | undefined>(undefined);
 	const [input, set_input] = useLocalStorage("main", "");
 	const [output, set_output] = useState({ parsed: "", error: "" });
+	const [used_passes, set_used_passes] = useState(0);
+	const [opt_max_passes, set_opt_max_passes] = useState(100);
+
+	const [copy_clip_state, set_copy_clip_state] = useState(undefined as string|undefined);
+
 	const [opts, set_opts] = useState({
 		remove_inaccessible_code:true,
 		collapse_jump_chain:true,
@@ -25,17 +30,17 @@ function App() {
 		remove_jumps_to_next_line:true,
 		remove_unused_markers:true,
 		remove_halt_at_end:true,
+		merge_adjacent_markers:true,
 		rename_markers:true,
 		remove_notes:false
 	} as OptimisationOptions);
-	const [rem_notes_enabled, set_rem_notes_enabled] = useState(false);
 
 	useEffect(()=> {
 
 			fetch("./exapunked.pegjs").then(res => res.text()).then(text => {
 				set_parser(peggy.generate(text));
 			})
-			debugger
+			
 			window.addEventListener("resize",(e)=>{
 				if(editor_left_ref.current && editor_right_ref.current){
 					editor_left_ref.current.layout()
@@ -46,10 +51,16 @@ function App() {
 		[]
 	)
 
+	function set_window_editors(){
+		if(editor_left_ref.current && editor_right_ref.current){
+			(window as any).editors = [editor_left_ref.current, editor_right_ref.current];
+		}
+	}
+
 
 	useEffect(()=>{
 		do_update(input);
-	},[opts, rem_notes_enabled, input,parser])
+	},[opts, opt_max_passes, input, parser])
 
 	function do_update(value: string) {
 		try {
@@ -59,7 +70,8 @@ function App() {
 				let parsed:string = parser.parse(value+"\n");
 				if(opts){
 					try{
-						let optimised = optimise(parsed, opts);
+						let {code:optimised, used_passes} = optimise(parsed, opts, opt_max_passes);
+						set_used_passes(used_passes)
 						set_output({ parsed: optimised, error: "" })
 					}catch(e){
 						set_output({ parsed: parsed+"\n\nNOTE Optimisation failed: "+e, error: "" })
@@ -89,22 +101,55 @@ function App() {
 							remove_jumps_to_next_line:"Remove Jumps To Next Line",
 							remove_unused_markers:"Remove Unused Markers",
 							remove_halt_at_end:"Remove Halt At End",
+							merge_adjacent_markers:"Merge Adjacent Markers",
 							rename_markers:"Rename Markers",
 							remove_notes:"Remove Notes"
-						}).map(([name,title], index)=>{
-							return <>
-								<input key={"key_1_"+name} id={"cb_"+name} type="checkbox" checked={opts[name]} onChange={e=>set_opts({...opts, [name]:e.target.checked})}/>		
+						}).map(([name,title], index)=>[
+								<input key={"key_1_"+name} id={"cb_"+name} type="checkbox" checked={opts[name]} onChange={e=>set_opts({...opts, [name]:e.target.checked})}/>,
 								<label key={"key_0_"+name} htmlFor={"cb_"+name}>{title}</label>
-							</>
-						})
+						]).flat()
 					}
+					
 				</div>
-
+				<hr/>
+				<div>
+					
+					<input id="cb_passes" type="range" min="0" max="20" step="1" value={opt_max_passes} onChange={e=>set_opt_max_passes(parseInt(e.target.value))}/>
+					<label htmlFor="cb_passes">{`Max Passes ${opt_max_passes}`}</label>
+				</div>
+				<div>
+					
+					<input id="cb_used_passes" type="range" min="0" max="20" step="1" value={used_passes} disabled/>
+					<label htmlFor="cb_used_passes">{`Used passes ${used_passes}`}</label>
+					
+				</div>
+				<hr/>
+				<input type="button" disabled={copy_clip_state!==undefined} onClick={e=>{
+					if(editor_right_ref.current){
+						set_copy_clip_state("trying")
+						navigator.clipboard.writeText(editor_right_ref.current.getValue()).then(
+							res=>{
+								set_copy_clip_state("success")
+								return new Promise(resolve=>setTimeout(resolve,1500));
+							},
+							err=>{
+								set_copy_clip_state("failed")
+								return new Promise(resolve=>setTimeout(resolve,1500));
+							}
+						).then(()=>set_copy_clip_state(undefined))
+					}
+				}} value={
+					(copy_clip_state=="failed" && "Failed to copy") ||
+					(copy_clip_state=="success" && "Success") ||
+					"Copy Output to Clipboard"
+					} style={{width:"100%",height:"4em"}}/>
+				<hr/>
+				<p>Put your cursor inside the text editor and Press F1 to access the command pallet.</p>
 				<a href="https://github.com/thehappycheese/exapunks_metalang_compiler">Documentation</a>
 
 
 			</div>
-			<div id="left_editor">
+			<div id="left_editor" className="editor_host">
 				<Editor
 					defaultLanguage="nexapunks"
 					theme="nexapunkstheme"
@@ -112,17 +157,17 @@ function App() {
 					// onMount={(editor: any, monaco: any)=>do_update(editor.getValue())}
 					onChange={(value: any, event: any)=>set_input(value)}
 					path="source"
-					onMount={(editor:any, monaco:any)=>{editor_left_ref.current = editor;}}
+					onMount={(editor:any, monaco:any)=>{editor_left_ref.current = editor; set_window_editors();}}
 				/>
 			</div>
-			<div id="right_editor">
+			<div id="right_editor" className="editor_host">
 				<Editor
-					defaultLanguage={output.parsed ? "nexapunksnative" :"plaintext"}
+					defaultLanguage="nexapunksnative"
 					theme="nexapunkstheme"
 					value={output.parsed ? output.parsed : output.error}
-					options={{readOnly:true}}
+					options={{readOnly:true, wordWrap:true}}
 					path="compiled"
-					onMount={(editor:any, monaco:any)=>{editor_right_ref.current = editor;}}
+					onMount={(editor:any, monaco:any)=>{editor_right_ref.current = editor;set_window_editors();}}
 				/>
 			</div>
 		</div>

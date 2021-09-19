@@ -44,7 +44,10 @@ Statement =
 
 
 Comment_Statement "Comment" 
-	= "//" comment:$([^\r\n]*) _nm {
+	= "//" _wo comment:$([^\r\n]*) _nm {
+        if(comment.trim().length>19){
+            throw new SyntaxError("Comments are restricted to a maximum of 19 characters")
+        }
 		return `NOTE ${comment.trim()}`
 	}
 
@@ -247,7 +250,7 @@ Marker_Label "Label" = $([A-z_0-9]+)
 
 
 Hardware_Register "HardwareRegister"
-= $("#"[A-z][A-z][A-z][A-z]){return text().toUpperCase()}
+= $("#"[A-z0-9][A-z0-9][A-z0-9][A-z0-9]){return text().toUpperCase()}
 
 Integer "Integer"
   = [-]?[0-9]+ { return parseInt(text(), 10); }

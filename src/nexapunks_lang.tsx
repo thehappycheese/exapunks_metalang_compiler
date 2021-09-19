@@ -109,22 +109,22 @@ export const nexapunks_setup = (monaco:any) => {
 			"FILE",
 			"HOST",
 			"TEST",
+			"MULI",
 			"SUBI",
 			"ADDI",
 			"MODI",
 			"DIVI",
 			"SWIZ",
+			"VOID",
 		],
 		keywordssingle:[
 			"HALT",
-			"VOID",
 			"MODE",
 			"DROP",
 			"KILL",
 			"NOOP",
 			"WIPE",
 			"MAKE",
-			"NOOP"
 		],
 		registers: [
 			"F",
@@ -145,6 +145,9 @@ export const nexapunks_setup = (monaco:any) => {
 		tokenizer: {
 			root: [
 				
+				// Syntax Error Hack
+				[/^SyntaxError:.+$/s, 'syntaxerror'],
+
 				// numbers
 				[/\d+/, 'number'],
 				// identifiers and keywords
@@ -184,6 +187,7 @@ export const nexapunks_setup = (monaco:any) => {
 		base: "vs-dark",
 		inherit: true,
 		rules: [
+			{ token: "syntaxerror", foreground: "#d16969" },
 			{ token: "register", foreground: "#d16969" },
 			{ token: "keywordss", foreground: "#9cdcfe" },
 			{ token: "specials", foreground: "#9cfffe" },
