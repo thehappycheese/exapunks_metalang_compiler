@@ -10,13 +10,16 @@ import optimise, { OptimisationOptions } from './optimiser';
 loader.init().then(nexapunks_setup)
 
 
-
+interface ProgEditState{
+	current:string,
+	progs:Record<string, string>
+}
 
 function App() {
 	const editor_left_ref:React.MutableRefObject<any> = useRef(null);
 	const editor_right_ref:React.MutableRefObject<any> = useRef(null);
 	const [parser, set_parser] = useState<peggy.Parser | undefined>(undefined);
-	const [input, set_input] = useLocalStorage("main", "");
+	const [input, set_input] = useLocalStorage("main", {current:"untitiled", progs:{"untitiled":""}} as ProgEditState);
 	const [output, set_output] = useState({ parsed: "", error: "" });
 	const [used_passes, set_used_passes] = useState(0);
 	const [opt_max_passes, set_opt_max_passes] = useState(100);
@@ -57,9 +60,18 @@ function App() {
 		}
 	}
 
+	function get_new_filename(){
+		let result = "untitled"
+		let num = 1;
+		while(input.progs[result+num]!==undefined){
+			num++
+		}
+		return result+num;
+	}
+
 
 	useEffect(()=>{
-		do_update(input);
+		do_update(input.progs[input.current]);
 	},[opts, opt_max_passes, input, parser])
 
 	function do_update(value: string) {
@@ -124,7 +136,93 @@ function App() {
 					
 				</div>
 				<hr/>
-				<input type="button" disabled={copy_clip_state!==undefined} onClick={e=>{
+				<p>Put your cursor inside the text editor and Press F1 to access the command pallet.</p>
+				<a href="https://github.com/thehappycheese/exapunks_metalang_compiler">Documentation</a>
+
+
+			</div>
+			<ul id="tabs">{
+				[
+					...Object.entries(input.progs)
+						.map(
+							([key, item])=><li 
+								key={key} 
+								className={(key==input.current)?"curtab":""} 
+								onClick={()=>set_input({...input, current:key})}
+							>
+								<div>{key}</div>
+								<div
+									className="tabbut"
+									onClick={(e)=>{
+										e.stopPropagation();
+										let new_name = window.prompt("rename", key);
+										if(new_name){
+											if(input.progs[new_name]===undefined && new_name.length>0){
+												let {current, progs} = input;
+												if(current===key){
+													current = new_name;
+												}
+												let prog = progs[key];
+												delete progs[key];
+												progs = {...progs, [new_name]:prog};
+												set_input({current, progs});
+											}
+										}
+									}}
+								>
+								✎
+								</div>
+								<div 
+									className="tabbut"
+									onClick={(e)=>{
+										e.stopPropagation();
+										if(window.confirm("Delete?")){
+											let progs = input.progs
+											delete progs[key]
+											if(Object.keys(progs).length===0){
+												set_input({current:"untitled",progs:{"untitled":""}})
+											}else{
+												let current = input.current;
+												if(current===key){
+													current = Object.keys(progs).slice(-1)[0]
+												}
+												set_input({current, progs});
+											}
+										}
+									}}
+								>
+									✖
+								</div>
+							</li>
+						),
+					<li
+						onClick={()=>{
+							let new_filename = get_new_filename();
+							set_input({current:new_filename, progs:{...input.progs,[new_filename]:""}})
+						}}
+						style={{textAlign:'center', display:'block', padding:" 0 5px"}}
+					>
+						+
+					</li>
+				]
+			}</ul>
+			<div id="left_editor" className="editor_host">
+				<Editor
+					defaultLanguage="nexapunks"
+					theme="nexapunkstheme"
+					defaultValue={input.progs[input.current]}
+					// onMount={(editor: any, monaco: any)=>do_update(editor.getValue())}
+					value={input.progs[input.current]}
+					onChange={(value: any, event: any)=>set_input({...input, progs:{...input.progs, [input.current]:value}})}
+					path="source"
+					onMount={(editor:any, monaco:any)=>{editor_left_ref.current = editor; set_window_editors();}}
+				/>
+			</div>
+			<input
+				id="copybut" 
+				type="button"
+				disabled={copy_clip_state!==undefined}
+				onClick={e=>{
 					if(editor_right_ref.current){
 						set_copy_clip_state("trying")
 						navigator.clipboard.writeText(editor_right_ref.current.getValue()).then(
@@ -138,28 +236,13 @@ function App() {
 							}
 						).then(()=>set_copy_clip_state(undefined))
 					}
-				}} value={
+				}} 
+				value={
 					(copy_clip_state=="failed" && "Failed to copy") ||
 					(copy_clip_state=="success" && "Success") ||
 					"Copy Output to Clipboard"
-					} style={{width:"100%",height:"4em"}}/>
-				<hr/>
-				<p>Put your cursor inside the text editor and Press F1 to access the command pallet.</p>
-				<a href="https://github.com/thehappycheese/exapunks_metalang_compiler">Documentation</a>
-
-
-			</div>
-			<div id="left_editor" className="editor_host">
-				<Editor
-					defaultLanguage="nexapunks"
-					theme="nexapunkstheme"
-					defaultValue={input}
-					// onMount={(editor: any, monaco: any)=>do_update(editor.getValue())}
-					onChange={(value: any, event: any)=>set_input(value)}
-					path="source"
-					onMount={(editor:any, monaco:any)=>{editor_left_ref.current = editor; set_window_editors();}}
-				/>
-			</div>
+				}
+			/>
 			<div id="right_editor" className="editor_host">
 				<Editor
 					defaultLanguage="nexapunksnative"

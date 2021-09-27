@@ -1,9 +1,75 @@
 // EngineerNick's ExaPunks Metalanguage Compiler
 {
     var __marker_counter = 0;
+    var stack_body = `  
+HALT
+MARK STACK
+MAKE
+MARK STACK_LOOP
+COPY M T
+FJMP STACK_TEST0
+COPY M T
+FJMP STACK_TEST1
+NOTE 11 push
+COPY M F
+JUMP STACK_LOOP
+MARK STACK_TEST1
+NOTE 10 pop
+SEEK -1
+COPY F M
+SEEK -1
+VOID F
+JUMP STACK_LOOP
+MARK STACK_TEST0
+COPY M T
+FJMP STACK_TEST2
+NOTE 01 kill stack
+FILE M
+HALT
+MARK STACK_TEST2
+NOTE 00 wipe stack
+WIPE
+MAKE
+JUMP STACK_LOOP
+`;
+
+/*
+mark stack
+make
+loop{
+    t=m
+    iftt{
+        t=m
+        iftt{
+            // 11 push
+            f=m
+        }else{
+            // 10 pop
+            seek -1
+            m=f
+            seek -1
+            delf
+        }
+    }else{
+        t=m
+        iftt{
+            // 01 kill stack
+            m=FID
+            halt
+        }else{
+            // 00 wipe stack
+            wipe
+            make
+        }
+    }
+}
+*/
 }
 
 Program = _won* prog:Statement_List _won* {
+    if(prog.split("\n").some(item=>item==="REPL STACK")){
+        return `${prog}\n${stack_body}`;
+    }
 	return prog;
 }
 
@@ -36,7 +102,12 @@ Statement =
         Function_Assign_Host /
         Function_Assign_List /
         Function_Test_Compare /
-        Function_Math 
+        Function_Math / 
+        Function_Stack_Push /
+        Function_Stack_Pop /
+        Function_Stack_Wipe /
+        Function_Stack_Kill /
+        Stack
     ) _wo (_nm / _le) {
         return statement
     } / Block_Statement
@@ -67,11 +138,11 @@ Do_While_False_Loop = "dowf" block:Block_Optionally_Labeled {
 }
 
 Function_If_True = "iftt" block:Block_Optionally_Labeled !(_won* "else") {
-    return `FJMP ${block.marker}\n${block.code}\nMARK ${block.marker}`;
+    return `FJMP ${block.marker}_EXIT\nMARK ${block.marker}\n${block.code}\nMARK ${block.marker}_EXIT`;
 }
 
 Function_If_False = "iftf" block:Block_Optionally_Labeled !(_won* "else") {
-    return `TJMP ${block.marker}\n${block.code}\nMARK ${block.marker}`
+    return `TJMP ${block.marker}_EXIT\nMARK ${block.marker}\n${block.code}\nMARK ${block.marker}_EXIT`
 }
 
 Function_If_False_Else = "iftf" block1:Block_Optionally_Labeled _won* "else" block2:Block_Optionally_Labeled  {
@@ -274,3 +345,39 @@ _nm "Newline"
 
 _le "Semicolon"
  = [;]
+
+
+Function_Stack_Push "push" = "push" + _wm reg:Register{
+    return `
+COPY 1 M
+COPY 1 M
+COPY ${reg} M
+`
+}
+
+Function_Stack_Pop "pop" = "pop" + _wm reg:Register{
+    return `
+COPY 1 M
+COPY 0 M
+COPY M ${reg}
+`
+}
+
+Function_Stack_Wipe "swipe" = "swipe" {
+    	return `
+COPY 0 M
+COPY 0 M
+`
+}
+Function_Stack_Kill "skill" = target:Register _wo "=" _wo "skill" {
+    	return `
+COPY 0 M
+COPY 1 M
+COPY M ${target}
+`
+}
+
+
+Stack "stac" = "stac" {
+    return `REPL STACK`
+}
